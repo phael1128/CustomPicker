@@ -14,13 +14,15 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import com.example.custompicker.screen.imageandvideo.ImageAndVideoScreen
 import com.example.custompicker.screen.photo.PhotoScreen
 import com.example.custompicker.screen.video.VideoScreen
+import com.example.custompicker.topbar.CustomPickerTopBar
 
 @Composable
 fun MediaTabScreen() {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
-    val tabTitles = listOf("사진", "비디오")
+    val tabTitles = listOf("사진", "비디오", "사진&비디오")
 
     Scaffold(
         topBar = {
@@ -47,6 +49,7 @@ fun MediaTabScreen() {
                 when (selectedTabIndex) {
                     0 -> PhotoScreen()
                     1 -> VideoScreen()
+                    2 -> ImageAndVideoScreen()
                 }
             }
         }

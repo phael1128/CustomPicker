@@ -1,4 +1,4 @@
-package com.example.custompicker.screen
+package com.example.custompicker.topbar
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
