@@ -1,4 +1,4 @@
-package com.example.custompicker.screen.imageandvideo
+package com.example.custompicker.screen.tab.video
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,11 +8,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
 @Composable
-fun ImageAndVideoScreen() {
+fun VideoScreen() {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = "ImageAndVideoScreen")
+        Text(text = "VideoScreen")
     }
 }

@@ -1,10 +1,13 @@
 package com.example.custompicker.screen
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.custompicker.MainViewModel
 import com.example.custompicker.screen.inital.InitializeScreen
 
 @Composable
@@ -36,7 +39,11 @@ fun NavigationConfiguration(
         }
 
         composable(route = NavigationRoute.MEDIA_TAB) {
-            MediaTabScreen()
+            val viewModel: MainViewModel = hiltViewModel()
+            val uiState = viewModel.mediaList.collectAsState().value
+            MainTabScreen(
+                mediaList = uiState.mediaList,
+            )
         }
     }
 }
