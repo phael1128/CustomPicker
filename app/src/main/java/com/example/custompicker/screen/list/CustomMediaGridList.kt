@@ -13,6 +13,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
+import com.bumptech.glide.integration.compose.placeholder
+import com.example.custompicker.R
 import com.example.custompicker.model.ItemGalleryMedia
 
 @OptIn(ExperimentalGlideComposeApi::class)
@@ -31,10 +33,12 @@ fun CustomMediaGridList(
             items = mediaList,
             key = { it.id },
         ) { media ->
-            val model = media.path ?: return@items
+            val model = media.path ?: R.drawable.media_placeholder
             GlideImage(
                 model = model,
                 contentDescription = null,
+                loading = placeholder(R.drawable.media_placeholder),
+                failure = placeholder(R.drawable.media_placeholder),
                 modifier =
                     Modifier
                         .fillMaxWidth()
