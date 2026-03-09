@@ -42,8 +42,11 @@ fun NavigationConfiguration(
             val viewModel: MainViewModel = hiltViewModel()
             val uiState = viewModel.mediaList.collectAsState().value
             MainTabScreen(
+                title = uiState.selectedDirectoryName,
+                directoryList = uiState.directoryList,
                 mediaList = uiState.mediaList,
                 onTabSelected = viewModel::onTabSelected,
+                onDirectorySelected = viewModel::onDirectorySelected,
             )
         }
     }

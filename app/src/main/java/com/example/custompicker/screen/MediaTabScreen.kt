@@ -16,6 +16,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.custompicker.model.ItemGalleryMedia
+import com.example.custompicker.model.PickerDir
 import com.example.custompicker.screen.tab.imageandvideo.ImageAndVideoScreen
 import com.example.custompicker.screen.tab.photo.PhotoScreen
 import com.example.custompicker.screen.tab.video.VideoScreen
@@ -23,8 +24,11 @@ import com.example.custompicker.topbar.CustomPickerTopBar
 
 @Composable
 fun MainTabScreen(
+    title: String,
+    directoryList: List<PickerDir>,
     mediaList: List<ItemGalleryMedia>,
     onTabSelected: (Int) -> Unit,
+    onDirectorySelected: (PickerDir) -> Unit,
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
     val tabTitles = listOf("사진", "비디오", "사진&비디오")
@@ -35,7 +39,11 @@ fun MainTabScreen(
 
     Scaffold(
         topBar = {
-            CustomPickerTopBar()
+            CustomPickerTopBar(
+                title = title,
+                directoryList = directoryList,
+                onDirectorySelected = onDirectorySelected,
+            )
         },
     ) { innerPadding ->
         Column(
