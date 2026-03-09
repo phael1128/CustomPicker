@@ -43,6 +43,7 @@ fun NavigationConfiguration(
             val uiState = viewModel.mediaList.collectAsState().value
             MainTabScreen(
                 mediaList = uiState.mediaList,
+                onTabSelected = viewModel::onTabSelected,
             )
         }
     }

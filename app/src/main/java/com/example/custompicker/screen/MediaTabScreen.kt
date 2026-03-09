@@ -9,6 +9,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -23,9 +24,14 @@ import com.example.custompicker.topbar.CustomPickerTopBar
 @Composable
 fun MainTabScreen(
     mediaList: List<ItemGalleryMedia>,
+    onTabSelected: (Int) -> Unit,
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
     val tabTitles = listOf("사진", "비디오", "사진&비디오")
+
+    LaunchedEffect(selectedTabIndex) {
+        onTabSelected(selectedTabIndex)
+    }
 
     Scaffold(
         topBar = {
@@ -51,8 +57,8 @@ fun MainTabScreen(
             Box(modifier = Modifier.fillMaxSize()) {
                 when (selectedTabIndex) {
                     0 -> PhotoScreen(mediaList = mediaList)
-                    1 -> VideoScreen()
-                    2 -> ImageAndVideoScreen()
+                    1 -> VideoScreen(mediaList = mediaList)
+                    2 -> ImageAndVideoScreen(mediaList = mediaList)
                 }
             }
         }
