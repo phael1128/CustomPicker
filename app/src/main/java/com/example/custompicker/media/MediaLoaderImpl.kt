@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.os.CancellationSignal
+import android.provider.MediaStore
 import com.example.custompicker.constants.PickerDefine
 import com.example.custompicker.model.ContentQuery
 import com.example.custompicker.model.ItemGalleryMedia
@@ -24,12 +25,14 @@ class MediaLoaderImpl
         contentQuery: ContentQuery,
         bucketName: String,
     ): PickerDir? {
+        val (selection, selectionArgs) = buildBaseSelection(contentQuery)
+
         context.contentResolver
             .query(
                 contentQuery.contentUri,
                 arrayOf(contentQuery.columnsMediaData),
-                "${contentQuery.columnsMediaSize} <> ?",
-                arrayOf("0"),
+                selection,
+                selectionArgs,
                 "${contentQuery.columnsMediaId} DESC",
             )?.use { cursor ->
                 val dataIndex = cursor.getColumnIndex(contentQuery.columnsMediaData)
@@ -56,6 +59,7 @@ class MediaLoaderImpl
         end: suspend () -> Unit,
     ) {
         val folderMap = LinkedHashMap<Long, PickerDir>()
+        val (selection, selectionArgs) = buildBaseSelection(contentQuery)
 
         context.contentResolver
             .query(
@@ -65,8 +69,8 @@ class MediaLoaderImpl
                     contentQuery.columnsMediaBucketDisplayName,
                     contentQuery.columnsMediaData,
                 ),
-                "${contentQuery.columnsMediaSize} <> ?",
-                arrayOf("0"),
+                selection,
+                selectionArgs,
                 "${contentQuery.columnsMediaBucketDisplayName} ASC, " +
                     "${contentQuery.columnsMediaBucketId} ASC, " +
                     "${contentQuery.columnsMediaDateModified} DESC",
@@ -151,11 +155,14 @@ class MediaLoaderImpl
                 contentQuery.columnsMediaDateModified,
                 contentQuery.columnsMediaSize,
             ).also { columns ->
-                if (contentQuery == ContentQuery.Video) {
+                if (supportsVideoColumns(contentQuery)) {
                     columns.add(contentQuery.columnsMediaDuration)
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     columns.add(contentQuery.columnsMediaDateTaken)
+                }
+                if (requiresMediaTypeColumn(contentQuery)) {
+                    columns.add(contentQuery.columnsMediaType)
                 }
             }.toTypedArray()
 
@@ -182,6 +189,12 @@ class MediaLoaderImpl
                     val dateAddedIndex = cursor.getColumnIndex(contentQuery.columnsMediaDateAdded)
                     val durationIndex = cursor.getColumnIndex(contentQuery.columnsMediaDuration)
                     val sizeIndex = cursor.getColumnIndex(contentQuery.columnsMediaSize)
+                    val mediaTypeIndex =
+                        if (requiresMediaTypeColumn(contentQuery)) {
+                            cursor.getColumnIndex(contentQuery.columnsMediaType)
+                        } else {
+                            -1
+                        }
                     val dateTakenIndex =
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                             cursor.getColumnIndex(contentQuery.columnsMediaDateTaken)
@@ -204,16 +217,25 @@ class MediaLoaderImpl
                             val dateAdded = cursor.getLong(dateAddedIndex) * 1000
                             val duration = if (durationIndex >= 0) cursor.getLong(durationIndex) else 0L
                             val size = if (sizeIndex >= 0) cursor.getInt(sizeIndex) else 0
+                            val mediaType =
+                                if (mediaTypeIndex >= 0) {
+                                    cursor.getInt(mediaTypeIndex)
+                                } else if (contentQuery == ContentQuery.Video) {
+                                    MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
+                                } else {
+                                    MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE
+                                }
+                            val isVideo = mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
 
                             val item =
                                 ItemGalleryMedia(
                                     id = mediaId,
                                     path = path,
                                     size = size,
-                                    originalUri = ContentUris.withAppendedId(contentQuery.contentUri, mediaId),
+                                    originalUri = buildOriginalUri(mediaId = mediaId, isVideo = isVideo),
                                     dateModified = dateModified,
                                     dateAdded = dateAdded,
-                                    isVideo = contentQuery == ContentQuery.Video,
+                                    isVideo = isVideo,
                                     duration = duration,
                                 )
 
@@ -249,7 +271,7 @@ class MediaLoaderImpl
         savePath: String,
         contentQuery: ContentQuery,
     ): ItemGalleryMedia? {
-        val isVideo = contentQuery == ContentQuery.Video
+        val mixedMediaQuery = requiresMediaTypeColumn(contentQuery)
         val projection =
             mutableListOf(
                 contentQuery.columnsMediaData,
@@ -258,8 +280,11 @@ class MediaLoaderImpl
                 contentQuery.columnsMediaDateModified,
                 contentQuery.columnsMediaSize,
             ).also {
-                if (isVideo) {
+                if (supportsVideoColumns(contentQuery)) {
                     it.add(contentQuery.columnsMediaDuration)
+                }
+                if (mixedMediaQuery) {
+                    it.add(contentQuery.columnsMediaType)
                 }
             }.toTypedArray()
 
@@ -288,6 +313,12 @@ class MediaLoaderImpl
                     val dateAddedIndex = cursor.getColumnIndex(contentQuery.columnsMediaDateAdded)
                     val durationIndex = cursor.getColumnIndex(contentQuery.columnsMediaDuration)
                     val sizeIndex = cursor.getColumnIndex(contentQuery.columnsMediaSize)
+                    val mediaTypeIndex =
+                        if (mixedMediaQuery) {
+                            cursor.getColumnIndex(contentQuery.columnsMediaType)
+                        } else {
+                            -1
+                        }
 
                     val path = cursor.getString(dataIndex)
                     val mediaId = cursor.getLong(idIndex)
@@ -295,12 +326,18 @@ class MediaLoaderImpl
                     val dateAdded = cursor.getLong(dateAddedIndex) * 1000
                     val duration = if (durationIndex >= 0) cursor.getLong(durationIndex) else 0L
                     val size = if (sizeIndex >= 0) cursor.getInt(sizeIndex) else 0
+                    val isVideo =
+                        if (mediaTypeIndex >= 0) {
+                            cursor.getInt(mediaTypeIndex) == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
+                        } else {
+                            contentQuery == ContentQuery.Video
+                        }
 
                     ItemGalleryMedia(
                         id = mediaId,
                         path = path,
                         size = size,
-                        originalUri = ContentUris.withAppendedId(contentQuery.contentUri, mediaId),
+                        originalUri = buildOriginalUri(mediaId = mediaId, isVideo = isVideo),
                         dateModified = dateModified,
                         dateAdded = dateAdded,
                         isVideo = isVideo,
@@ -316,13 +353,75 @@ class MediaLoaderImpl
         bucketId: Long,
         contentQuery: ContentQuery,
     ): Pair<String, Array<String>> {
-        return if (bucketId == PickerDefine.TYPE_ALL_VIEW.toLong()) {
-            "${contentQuery.columnsMediaSize} <> ?" to arrayOf("0")
-        } else {
-            "${contentQuery.columnsMediaBucketId} = ? AND ${contentQuery.columnsMediaSize} <> ?" to
-                arrayOf(bucketId.toString(), "0")
+        val selectionClauses = mutableListOf<String>()
+        val selectionArgs = mutableListOf<String>()
+
+        if (bucketId != PickerDefine.TYPE_ALL_VIEW.toLong()) {
+            selectionClauses += "${contentQuery.columnsMediaBucketId} = ?"
+            selectionArgs += bucketId.toString()
         }
+
+        appendMediaTypeSelection(contentQuery, selectionClauses, selectionArgs)
+
+        selectionClauses += "${contentQuery.columnsMediaSize} <> ?"
+        selectionArgs += "0"
+
+        return selectionClauses.joinToString(separator = " AND ") to selectionArgs.toTypedArray()
     }
+
+    private fun buildBaseSelection(contentQuery: ContentQuery): Pair<String, Array<String>> {
+        val selectionClauses = mutableListOf<String>()
+        val selectionArgs = mutableListOf<String>()
+
+        appendMediaTypeSelection(contentQuery, selectionClauses, selectionArgs)
+
+        selectionClauses += "${contentQuery.columnsMediaSize} <> ?"
+        selectionArgs += "0"
+
+        return selectionClauses.joinToString(separator = " AND ") to selectionArgs.toTypedArray()
+    }
+
+    /**
+     * MediaStore.Files는 이미지/비디오 외의 다른 파일 타입도 함께 반환할 수 있다.
+     * 그래서 혼합 탭에서는 디렉터리 조회와 미디어 조회 모두에서
+     * MEDIA_TYPE_IMAGE / MEDIA_TYPE_VIDEO 조건을 동일하게 붙여줘야 한다.
+     *
+     * @param contentQuery
+     * @param selectionClauses
+     * @param selectionArgs
+     */
+    private fun appendMediaTypeSelection(
+        contentQuery: ContentQuery,
+        selectionClauses: MutableList<String>,
+        selectionArgs: MutableList<String>,
+    ) {
+        if (contentQuery.mediaTypes.isEmpty()) return
+
+        val placeholders = contentQuery.mediaTypes.joinToString(separator = " OR ") {
+            "${contentQuery.columnsMediaType} = ?"
+        }
+        selectionClauses += "($placeholders)"
+        selectionArgs += contentQuery.mediaTypes.map(Int::toString)
+    }
+
+    private fun requiresMediaTypeColumn(contentQuery: ContentQuery): Boolean =
+        contentQuery == ContentQuery.Files
+
+    private fun supportsVideoColumns(contentQuery: ContentQuery): Boolean =
+        contentQuery == ContentQuery.Video || contentQuery == ContentQuery.Files
+
+    private fun buildOriginalUri(
+        mediaId: Long,
+        isVideo: Boolean,
+    ): Uri =
+        ContentUris.withAppendedId(
+            if (isVideo) {
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            } else {
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            },
+            mediaId,
+        )
 
     private suspend fun <T> emitByChunk(
         source: List<T>,
