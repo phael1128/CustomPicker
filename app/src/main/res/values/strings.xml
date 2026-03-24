@@ -1,3 +1,14 @@
 <resources>
     <string name="app_name">CustomPicker</string>
+    <string name="settings">설정</string>
+    <string name="sorting_dialog_description">정렬 방식을 선택하세요.</string>
+    <string name="sorting">정렬</string>
+    <string name="descending_order">내림차순</string>
+    <string name="modified_date">수정일</string>
+    <string name="created_date">생성일</string>
+    <string name="dialog_option_saved">저장</string>
+    <string name="cancel">취소</string>
+    <string name="photo_tab">사진</string>
+    <string name="video_tab">비디오</string>
+    <string name="photo_video_tab">사진&amp;비디오</string>
 </resources>

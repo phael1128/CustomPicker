@@ -7,27 +7,38 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import com.example.custompicker.screen.MainScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private var hasStoragePermission by mutableStateOf(false)
+
     private val requestStoragePermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-            // Permission result is handled when the user responds.
+            hasStoragePermission = hasStorageReadPermission()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        hasStoragePermission = hasStorageReadPermission()
         setContent {
             MainScreen(
-                hasStoragePermission = hasStorageReadPermission(),
+                hasStoragePermission = hasStoragePermission,
                 onInitializeClick = {
                     requestStoragePermission()
-                }
+                },
             )
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        hasStoragePermission = hasStorageReadPermission()
     }
 
     private fun requestStoragePermission() {
@@ -36,7 +47,10 @@ class MainActivity : ComponentActivity() {
                 ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED
             }
 
-        if (deniedPermissions.isEmpty()) return
+        if (deniedPermissions.isEmpty()) {
+            hasStoragePermission = true
+            return
+        }
 
         requestStoragePermissionLauncher.launch(deniedPermissions.toTypedArray())
     }

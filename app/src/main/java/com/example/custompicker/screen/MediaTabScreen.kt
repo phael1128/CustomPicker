@@ -11,10 +11,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.example.custompicker.R
 import com.example.custompicker.model.ItemGalleryMedia
 import com.example.custompicker.model.PickerDir
 import com.example.custompicker.screen.tab.imageandvideo.ImageAndVideoScreen
@@ -25,15 +27,23 @@ import com.example.custompicker.topbar.CustomPickerTopBar
 @Composable
 fun MainTabScreen(
     title: String,
+    selectedTabIndex: Int,
     directoryList: List<PickerDir>,
     mediaList: List<ItemGalleryMedia>,
+    currentSortingType: Int,
     onTabSelected: (Int) -> Unit,
     onDirectorySelected: (PickerDir) -> Unit,
+    onMediaOptionsSaved: (Int) -> Unit,
 ) {
-    var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
-    val tabTitles = listOf("사진", "비디오", "사진&비디오")
+    var showOptionSheet by rememberSaveable { mutableStateOf(false) }
+    val tabTitles =
+        listOf(
+            stringResource(id = R.string.photo_tab),
+            stringResource(id = R.string.video_tab),
+            stringResource(id = R.string.photo_video_tab),
+        )
 
-    LaunchedEffect(selectedTabIndex) {
+    LaunchedEffect(Unit) {
         onTabSelected(selectedTabIndex)
     }
 
@@ -43,6 +53,11 @@ fun MainTabScreen(
                 title = title,
                 directoryList = directoryList,
                 onDirectorySelected = onDirectorySelected,
+            )
+        },
+        bottomBar = {
+            MediaOptionActionBar(
+                onSettingsClick = { showOptionSheet = true },
             )
         },
     ) { innerPadding ->
@@ -56,7 +71,7 @@ fun MainTabScreen(
                 tabTitles.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
+                        onClick = { onTabSelected(index) },
                         text = { Text(text = title) },
                     )
                 }
@@ -70,5 +85,16 @@ fun MainTabScreen(
                 }
             }
         }
+    }
+
+    if (showOptionSheet) {
+        MediaOptionSettingBottomSheet(
+            currentSortingType = currentSortingType,
+            onDismissRequest = { showOptionSheet = false },
+            onSaveClick = { sortingType ->
+                showOptionSheet = false
+                onMediaOptionsSaved(sortingType)
+            },
+        )
     }
 }

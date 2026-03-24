@@ -65,6 +65,25 @@ class MainViewModel @Inject constructor(
         )
     }
 
+    fun onMediaOptionsSaved(sortingType: Int) {
+        val currentState = _mediaList.value
+        val sortingChanged = currentState.sortingType != sortingType
+
+        if (!sortingChanged) return
+
+        _mediaList.update {
+            it.copy(
+                sortingType = sortingType,
+                mediaList = emptyList(),
+            )
+        }
+
+        loadMediaList(
+            tabIndex = currentState.selectedTabIndex,
+            bucketId = currentState.selectedBucketId,
+        )
+    }
+
     private fun loadDirectoryList(tabIndex: Int) {
         loadDirectoryJob?.cancel()
 
@@ -133,6 +152,7 @@ class MainViewModel @Inject constructor(
 
         val cancellationSignal = CancellationSignal()
         loadCancellationSignal = cancellationSignal
+        val sortingType = _mediaList.value.sortingType
 
         loadMediaJob =
             viewModelScope.launch(coroutineExceptionHandler) {
@@ -140,7 +160,7 @@ class MainViewModel @Inject constructor(
                     mediaLoader.getMediaList(
                         bucketId = bucketId,
                         contentQuery = contentQuery,
-                        sortingType = PickerDefine.TYPE_SORTING_MODIFIED_DATE,
+                        sortingType = sortingType,
                         emitSize = 3000,
                         cancellationSignal = cancellationSignal,
                     ) { list, canceled ->
