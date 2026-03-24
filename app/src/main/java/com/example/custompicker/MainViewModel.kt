@@ -1,21 +1,17 @@
 package com.example.custompicker
 
 import android.os.CancellationSignal
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.custompicker.constants.PickerDefine
+import com.example.custompicker.core.compose.ui.BaseViewModelWithState
 import com.example.custompicker.di.IoDispatcher
 import com.example.custompicker.handler.coroutineExceptionHandler
 import com.example.custompicker.media.MediaLoader
 import com.example.custompicker.model.ContentQuery
-import com.example.custompicker.model.ItemGalleryMedia
 import com.example.custompicker.model.PickerDir
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -24,18 +20,37 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     private val mediaLoader: MediaLoader,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-) : ViewModel() {
-
-    private val _mediaList = MutableStateFlow(UiState())
-    val mediaList = _mediaList.asStateFlow()
+) : BaseViewModelWithState<MainContract.UiState, MainContract.Event, MainContract.Effect>() {
 
     private var loadMediaJob: Job? = null
     private var loadDirectoryJob: Job? = null
     private var loadCancellationSignal: CancellationSignal? = null
 
-    fun onTabSelected(tabIndex: Int) {
-        _mediaList.update {
-            it.copy(
+    override fun setInitialState(): MainContract.UiState = MainContract.UiState()
+
+    override fun handleEvents(event: MainContract.Event) {
+        when (event) {
+            MainContract.Event.Initialize -> initialize()
+            is MainContract.Event.OnTabSelected -> onTabSelected(event.tabIndex)
+            is MainContract.Event.OnDirectorySelected -> onDirectorySelected(event.directory)
+            is MainContract.Event.OnSortingTypeChanged -> onMediaOptionsSaved(event.sortingType)
+        }
+    }
+
+    private fun initialize() {
+        if (currentState.isInitialized) return
+
+        setState {
+            copy(isInitialized = true)
+        }
+
+        onTabSelected(currentState.selectedTabIndex)
+    }
+
+    private fun onTabSelected(tabIndex: Int) {
+        setState {
+            copy(
+                isInitialized = true,
                 selectedTabIndex = tabIndex,
                 selectedBucketId = PickerDefine.TYPE_ALL_VIEW.toLong(),
                 selectedDirectoryName = ALL_DIRECTORY_NAME,
@@ -50,10 +65,10 @@ class MainViewModel @Inject constructor(
         )
     }
 
-    fun onDirectorySelected(directory: PickerDir) {
-        val currentTabIndex = _mediaList.value.selectedTabIndex
-        _mediaList.update {
-            it.copy(
+    private fun onDirectorySelected(directory: PickerDir) {
+        val currentTabIndex = currentState.selectedTabIndex
+        setState {
+            copy(
                 selectedBucketId = directory.bucketId,
                 selectedDirectoryName = directory.bucketName,
                 mediaList = emptyList(),
@@ -65,14 +80,13 @@ class MainViewModel @Inject constructor(
         )
     }
 
-    fun onMediaOptionsSaved(sortingType: Int) {
-        val currentState = _mediaList.value
+    private fun onMediaOptionsSaved(sortingType: Int) {
         val sortingChanged = currentState.sortingType != sortingType
 
         if (!sortingChanged) return
 
-        _mediaList.update {
-            it.copy(
+        setState {
+            copy(
                 sortingType = sortingType,
                 mediaList = emptyList(),
             )
@@ -98,21 +112,21 @@ class MainViewModel @Inject constructor(
                             else -> listOf(buildAllDirectory(counter = 0))
                         }
 
-                    _mediaList.update { state ->
-                        if (state.selectedTabIndex != tabIndex) {
-                            state
-                        } else {
-                            val selectedDirectory =
-                                directories.firstOrNull { it.bucketId == state.selectedBucketId }
-                                    ?: directories.firstOrNull()
-                                    ?: buildAllDirectory(counter = 0)
+                    if (currentState.selectedTabIndex != tabIndex) {
+                        return@withContext
+                    }
 
-                            state.copy(
-                                selectedBucketId = selectedDirectory.bucketId,
-                                selectedDirectoryName = selectedDirectory.bucketName,
-                                directoryList = directories,
-                            )
-                        }
+                    val selectedDirectory =
+                        directories.firstOrNull { it.bucketId == currentState.selectedBucketId }
+                            ?: directories.firstOrNull()
+                            ?: buildAllDirectory(counter = 0)
+
+                    setState {
+                        copy(
+                            selectedBucketId = selectedDirectory.bucketId,
+                            selectedDirectoryName = selectedDirectory.bucketName,
+                            directoryList = directories,
+                        )
                     }
                 }
             }
@@ -152,7 +166,7 @@ class MainViewModel @Inject constructor(
 
         val cancellationSignal = CancellationSignal()
         loadCancellationSignal = cancellationSignal
-        val sortingType = _mediaList.value.sortingType
+        val sortingType = currentState.sortingType
 
         loadMediaJob =
             viewModelScope.launch(coroutineExceptionHandler) {
@@ -165,12 +179,13 @@ class MainViewModel @Inject constructor(
                         cancellationSignal = cancellationSignal,
                     ) { list, canceled ->
                         if (canceled || list.isNullOrEmpty()) return@getMediaList
-                        _mediaList.update { state ->
-                            if (state.selectedTabIndex != tabIndex || state.selectedBucketId != bucketId) {
-                                state
-                            } else {
-                                state.copy(mediaList = state.mediaList + list)
-                            }
+
+                        if (currentState.selectedTabIndex != tabIndex || currentState.selectedBucketId != bucketId) {
+                            return@getMediaList
+                        }
+
+                        setState {
+                            copy(mediaList = mediaList + list)
                         }
                     }
                 }

@@ -31,6 +31,7 @@ fun MainTabScreen(
     directoryList: List<PickerDir>,
     mediaList: List<ItemGalleryMedia>,
     currentSortingType: Int,
+    onInitialize: () -> Unit,
     onTabSelected: (Int) -> Unit,
     onDirectorySelected: (PickerDir) -> Unit,
     onMediaOptionsSaved: (Int) -> Unit,
@@ -44,7 +45,7 @@ fun MainTabScreen(
         )
 
     LaunchedEffect(Unit) {
-        onTabSelected(selectedTabIndex)
+        onInitialize()
     }
 
     Scaffold(

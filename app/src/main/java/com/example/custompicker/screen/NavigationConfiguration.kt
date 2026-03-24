@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.custompicker.MainContract
 import com.example.custompicker.MainViewModel
 import com.example.custompicker.screen.inital.InitializeScreen
 
@@ -62,16 +63,25 @@ fun NavigationConfiguration(
 
         composable(route = NavigationRoute.MEDIA_TAB) {
             val viewModel: MainViewModel = hiltViewModel()
-            val uiState = viewModel.mediaList.collectAsState().value
+            val uiState = viewModel.viewState.collectAsState().value
             MainTabScreen(
                 title = uiState.selectedDirectoryName,
                 selectedTabIndex = uiState.selectedTabIndex,
                 directoryList = uiState.directoryList,
                 mediaList = uiState.mediaList,
                 currentSortingType = uiState.sortingType,
-                onTabSelected = viewModel::onTabSelected,
-                onDirectorySelected = viewModel::onDirectorySelected,
-                onMediaOptionsSaved = viewModel::onMediaOptionsSaved,
+                onInitialize = {
+                    viewModel.setEvent(MainContract.Event.Initialize)
+                },
+                onTabSelected = { tabIndex ->
+                    viewModel.setEvent(MainContract.Event.OnTabSelected(tabIndex))
+                },
+                onDirectorySelected = { directory ->
+                    viewModel.setEvent(MainContract.Event.OnDirectorySelected(directory))
+                },
+                onMediaOptionsSaved = { sortingType ->
+                    viewModel.setEvent(MainContract.Event.OnSortingTypeChanged(sortingType))
+                },
             )
         }
     }
